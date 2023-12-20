@@ -1,15 +1,15 @@
 class Rimage < Formula
   desc "A tool for resizing images in bulk"
   homepage "https://github.com/SalOne22/rimage"
-  version "0.9.1"
+  version "0.10.2"
   license "MIT"
 
   if Hardware::CPU.intel?
-    url "https://github.com/SalOne22/rimage/releases/download/v0.9.1/rimage-0.9.1-x86_64-apple-darwin.tar.gz"
-    sha256 "a3489a73a593e215c44805d41534c7d57f5e9b5ea3392424c14420c8b9a3c95b"
+    url "https://github.com/SalOne22/rimage/releases/download/v0.10.2/rimage-0.10.2-x86_64-apple-darwin.tar.gz"
+    sha256 "a68ce9b168d6af39e510612b402957e1cfff9ce9831e20803d5d2d43b23a344b"
   elsif Hardware::CPU.arm?
-    url "https://github.com/SalOne22/rimage/releases/download/v0.9.1/rimage-0.9.1-aarch64-apple-darwin.tar.gz"
-    sha256 "ded6895336b279c00595785ad281e41ff79466fc11ed4821fefc0a98505873cd"
+    url "https://github.com/SalOne22/rimage/releases/download/v0.10.2/rimage-0.10.2-aarch64-apple-darwin.tar.gz"
+    sha256 "6657b48f65e28eb18a81f622e505df1e6f5630eca1289b7ec4d14e712c558056"
   end
 
   def install
