@@ -1,8 +1,8 @@
-cask "loginputmac-alt" do
-  version "2.5.3,24161"
-  sha256 "a6111d21be1f28e7a8ea748c7b98d5168432c20d47ad6abe93b05867429f58f5"
+cask "loginputmac" do
+  version "3.5.3,15521"
+  sha256 "b25a0280780ef41d38013149a5e813b08377e5c46f67bd9bfd9e0c1b41942ac9"
 
-  url "https://loginput-mac2.totest.top/loginputmac#{version.major}_latest.pkg",
+  url "https://loginput-mac2.totest.top/LogInputMac#{version.csv.first.major}.app#{version.csv.second}.zip",
       verified: "loginput-mac2.totest.top/"
   name "LoginputMac"
   desc "Chinese input method"
@@ -15,17 +15,17 @@ cask "loginputmac-alt" do
 
   auto_updates true
 
-  pkg "loginputmac#{version.major}_latest.pkg"
+  app "LogInputMac#{version.csv.first.major}.app"
 
-  uninstall pkgutil: "com.logcg.pkg.LoginputMac#{version.major}",
-            quit:    "com.logcg.inputmethod.LogInputMac#{version.major}"
-  
+  uninstall quit: "com.logcg.inputmethod.LogInputMac#{version.major}"
+
   zap trash: [
-    "~/Library/Application Support/LogInputMac",
-    "~/Library/Application Support/com.logcg.inputmethod.LogInputMac2",
-    "~/Library/Cookies/com.logcg.inputmethod.LogInputMac2.binarycookies",
-    "~/Library/Preferences/com.logcg.inputmethod.LogInputMac.Settings.plist",
-    "~/Library/Preferences/com.logcg.inputmethod.LogInputMac2.plist",
-    "~/Library/Saved Application State/com.logcg.inputmethod.LogInputMac.Settings.savedState",
+    "~/Documents/落格输入法",
+    "~/Library/Application Support/com.logcg.inputmethod.LogInputMac#{version.major}",
+    "~/Library/Application Support/LogInputMac#{version.major}",
+    "~/Library/Caches/com.logcg.inputmethod.LogInputMac#{version.major}",
+    "~/Library/HTTPStorages/com.logcg.inputmethod.LogInputMac#{version.major}",
+    "~/Library/Preferences/com.logcg.inputmethod.LogInputMac#{version.major}.plist",
+    "~/Library/Saved Application State/com.logcg.inputmethod.LogInputMac#{version.major}.Settings.savedState",
   ]
 end
