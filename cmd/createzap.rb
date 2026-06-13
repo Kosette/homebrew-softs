@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "abstract_command"
+require "system_command"
 
 module Homebrew
   module Cmd
@@ -12,6 +13,8 @@ module Homebrew
     #   brew createzap Raycast
     #   brew createzap "Visual Studio Code"
     class Createzap < AbstractCommand
+      include SystemCommand::Mixin
+
       cmd_args do
         description <<~EOS
           Generate a Homebrew Cask `zap` stanza for <application-name>.
@@ -85,7 +88,11 @@ module Homebrew
           plist = "#{app_path}/Contents/Info.plist"
           next unless File.exist?(plist)
 
-          result = `/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "#{plist}" 2>/dev/null`.strip
+          result = system_command(
+            "/usr/libexec/PlistBuddy",
+            args:         ["-c", "Print CFBundleIdentifier", plist],
+            print_stderr: false,
+          ).stdout.strip
           return result unless result.empty?
         end
 
