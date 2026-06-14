@@ -1,0 +1,197 @@
+#!/bin/bash
+# brew-createzap – Generate a Homebrew Cask `zap` stanza for <application-name>.
+#
+# Scans common macOS preference and support locations for files
+# matching the application name and its bundle identifier
+# (discovered from the installed .app bundle's Info.plist).
+#
+# Usage:
+#   brew createzap Raycast
+#   brew createzap "Visual Studio Code"
+
+set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Help / argument validation
+# ---------------------------------------------------------------------------
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  echo "Usage: brew createzap <application-name>"
+  echo ""
+  echo "Generate a Homebrew Cask \`zap\` stanza for <application-name>."
+  echo ""
+  echo "Scans common macOS preference and support locations for files"
+  echo "matching the application name and its bundle identifier"
+  echo "(discovered from the installed .app bundle's Info.plist)."
+  exit 0
+fi
+
+if [[ $# -ne 1 ]]; then
+  echo "Usage: brew createzap <application-name>" >&2
+  exit 1
+fi
+
+APP_NAME="$1"
+HOME_DIR="$HOME"
+
+# ---------------------------------------------------------------------------
+# Search paths (non-recursive, one level deep each)
+# ---------------------------------------------------------------------------
+
+SEARCH_PATHS=(
+  "$HOME_DIR/Desktop"
+  "$HOME_DIR/Documents"
+  "$HOME_DIR/Library"
+  "$HOME_DIR/Library/Application Scripts"
+  "$HOME_DIR/Library/Application Support"
+  "$HOME_DIR/Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.ApplicationRecentDocuments"
+  "$HOME_DIR/Library/Caches"
+  "$HOME_DIR/Library/Caches/com.apple.helpd/Generated"
+  "$HOME_DIR/Library/Caches/com.apple.helpd/SDMHelpData/Other/English/HelpSDMIndexFile"
+  "$HOME_DIR/Library/Containers"
+  "$HOME_DIR/Library/Cookies"
+  "$HOME_DIR/Library/Group Containers"
+  "$HOME_DIR/Library/HTTPStorages"
+  "$HOME_DIR/Library/Internet Plug-Ins"
+  "$HOME_DIR/Library/LaunchAgents"
+  "$HOME_DIR/Library/Logs"
+  "$HOME_DIR/Library/PreferencePanes"
+  "$HOME_DIR/Library/Preferences"
+  "$HOME_DIR/Library/Saved Application State"
+  "$HOME_DIR/Library/WebKit"
+  "$HOME_DIR/Music"
+  "/Library/Application Support"
+  "/Library/Caches"
+  "/Library/LaunchDaemons"
+  "/Library/PreferencePanes"
+  "/Library/Preferences"
+  "/Library/PrivilegedHelperTools"
+  "/Library/Screen Savers"
+  "/Library/ScriptingAdditions"
+  "/Library/Services"
+  "/Users/Shared"
+  "/etc/newsyslog.d"
+)
+
+# ---------------------------------------------------------------------------
+# get_bundle_id <app-name>
+#   Reads CFBundleIdentifier from the first matching .app bundle found in
+#   /Applications or ~/Applications. Prints the ID and returns 0 on success;
+#   prints nothing and returns 0 when not found.
+# ---------------------------------------------------------------------------
+
+get_bundle_id() {
+  local app_name="$1"
+  local candidates=(
+    "/Applications/${app_name}.app/Contents/Info.plist"
+    "$HOME_DIR/Applications/${app_name}.app/Contents/Info.plist"
+  )
+  local bundle_id
+  for plist in "${candidates[@]}"; do
+    [[ -f "$plist" ]] || continue
+    bundle_id=$(/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "$plist" 2>/dev/null || true)
+    if [[ -n "$bundle_id" ]]; then
+      echo "$bundle_id"
+      return 0
+    fi
+  done
+  return 0
+}
+
+# ---------------------------------------------------------------------------
+# matches_any <full-path> <term>...
+#   Returns 0 if the basename of <full-path> contains any <term> as a
+#   case-insensitive substring; returns 1 otherwise.
+# ---------------------------------------------------------------------------
+
+matches_any() {
+  local path="$1"
+  shift
+  local basename
+  basename=$(basename "$path")
+  local basename_lower
+  basename_lower=$(echo "$basename" | tr '[:upper:]' '[:lower:]')
+  local term term_lower
+  for term in "$@"; do
+    term_lower=$(echo "$term" | tr '[:upper:]' '[:lower:]')
+    if [[ "$basename_lower" == *"$term_lower"* ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# ---------------------------------------------------------------------------
+# tilde_path <full-path>
+#   Replaces a leading $HOME prefix with ~ for display.
+# ---------------------------------------------------------------------------
+
+tilde_path() {
+  local path="$1"
+  echo "${path/#"$HOME_DIR"/~}"
+}
+
+# ---------------------------------------------------------------------------
+# Build search terms
+# ---------------------------------------------------------------------------
+
+SEARCH_TERMS=("$APP_NAME")
+BUNDLE_ID=$(get_bundle_id "$APP_NAME")
+if [[ -n "$BUNDLE_ID" ]]; then
+  SEARCH_TERMS+=("$BUNDLE_ID")
+fi
+
+# ---------------------------------------------------------------------------
+# Collect matches into a temp file (one absolute path per line)
+# ---------------------------------------------------------------------------
+
+TMPFILE=$(mktemp)
+trap 'rm -f "$TMPFILE"' EXIT
+
+# Search each configured directory at depth 1, silently skipping on errors.
+for dir in "${SEARCH_PATHS[@]}"; do
+  [[ -d "$dir" ]] || continue
+  while IFS= read -r -d '' child; do
+    # Skip broken symlinks (mirrors Ruby's File.exist? which follows symlinks)
+    [[ -e "$child" ]] || continue
+    if matches_any "$child" "${SEARCH_TERMS[@]}"; then
+      printf '%s\n' "$child" >> "$TMPFILE"
+    fi
+  done < <(find "$dir" -maxdepth 1 -mindepth 1 -print0 2>/dev/null || true)
+done
+
+# Search $HOME itself at depth 1 (separate pass, mirrors search_home).
+while IFS= read -r -d '' child; do
+  [[ -e "$child" ]] || continue
+  if matches_any "$child" "${SEARCH_TERMS[@]}"; then
+    printf '%s\n' "$child" >> "$TMPFILE"
+  fi
+done < <(find "$HOME_DIR" -maxdepth 1 -mindepth 1 -print0 2>/dev/null || true)
+
+# ---------------------------------------------------------------------------
+# Deduplicate (case-insensitive) and sort
+# ---------------------------------------------------------------------------
+
+RESULTS=$(sort -uf "$TMPFILE")
+
+# ---------------------------------------------------------------------------
+# Output
+# ---------------------------------------------------------------------------
+
+if [[ -z "$RESULTS" ]]; then
+  echo "No matching settings found."
+  echo "# No zap stanza required"
+  exit 0
+fi
+
+RESULT_COUNT=$(echo "$RESULTS" | wc -l | tr -d ' ')
+
+if [[ "$RESULT_COUNT" -eq 1 ]]; then
+  echo "zap trash: \"$(tilde_path "$RESULTS")\""
+else
+  echo "zap trash: ["
+  while IFS= read -r path; do
+    echo "  \"$(tilde_path "$path")\","
+  done <<< "$RESULTS"
+  echo "]"
+fi
