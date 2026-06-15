@@ -155,7 +155,7 @@ for dir in "${SEARCH_PATHS[@]}"; do
     # Skip broken symlinks (mirrors Ruby's File.exist? which follows symlinks)
     [[ -e "$child" ]] || continue
     if matches_any "$child" "${SEARCH_TERMS[@]}"; then
-      printf '%s\n' "$child" >> "$TMPFILE"
+      printf '%s\n' "$child" >>"$TMPFILE"
     fi
   done < <(find "$dir" -maxdepth 1 -mindepth 1 -print0 2>/dev/null || true)
 done
@@ -164,7 +164,7 @@ done
 while IFS= read -r -d '' child; do
   [[ -e "$child" ]] || continue
   if matches_any "$child" "${SEARCH_TERMS[@]}"; then
-    printf '%s\n' "$child" >> "$TMPFILE"
+    printf '%s\n' "$child" >>"$TMPFILE"
   fi
 done < <(find "$HOME_DIR" -maxdepth 1 -mindepth 1 -print0 2>/dev/null || true)
 
@@ -192,6 +192,6 @@ else
   echo "zap trash: ["
   while IFS= read -r path; do
     echo "  \"$(tilde_path "$path")\","
-  done <<< "$RESULTS"
+  done <<<"$RESULTS"
   echo "]"
 fi
